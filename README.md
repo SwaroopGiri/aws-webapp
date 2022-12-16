@@ -1,5 +1,5 @@
 # webapp
-A collection of REST APIs built to be deployed over aws as a systemctl service. Includes CI/CD using github actions which triggers a new ami build on pull request and updates autoscaling group with recent launch template version. Make sure to create IAM role for packer and attach required policies to it. Add respective github secrets wherever necessary.
+A collection of REST APIs built to be deployed over aws as a systemctl service. Includes CI/CD using github actions which triggers a new ami build on pull request using packer and updates autoscaling group with recent launch template version. Make sure to create IAM role for packer and attach required policies to it. Add respective github secrets wherever necessary.
 
 ## Frameworks
 
