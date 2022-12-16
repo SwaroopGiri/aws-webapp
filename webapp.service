@@ -1,0 +1,17 @@
+[Unit]
+Description= Systemctl Service for webapp
+After=network.target
+
+[Service]
+User=ubuntu
+WorkingDirectory= /home/ubuntu/webapp/
+EnvironmentFile= /etc/environment
+ExecStart= npm start
+Restart=always
+RestartSec=10
+StandardOutput=syslog
+StandardError=syslog
+SyslogIdentifier=nodeapi
+
+[Install]
+WantedBy=multi-user.target
