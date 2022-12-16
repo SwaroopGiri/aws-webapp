@@ -1,1 +1,57 @@
-
+name: CI
+on:
+  pull_request_target:
+    types:
+      - closed
+jobs:
+    build-node:
+        if: ${{ github.event.pull_request.merged }}
+        runs-on: ubuntu-latest
+        strategy:
+            matrix:
+                node-version: [18.x]
+                mysql-version: [8.0]
+        env:
+          RDS: ${{ secrets.RDS }}
+          SQL_ROOT: ${{ secrets.SQL_ROOT }}
+          SQL_PASS: ${{ secrets.SQL_PASS }}
+          bucket: ${{ secrets.BUCKET }}
+          DB: ${{ secrets.DB }}
+          aws_region: ${{ secrets.REGION }}
+        steps:
+            - uses: actions/checkout@v3
+            - name: Configure AWS DEV Credentials
+              uses: aws-actions/configure-aws-credentials@v1
+              with:
+                aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+                aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+                aws-region: ${{ secrets.REGION }}
+            - name: Use Node.js ${{ matrix.node-version }}
+              uses: actions/setup-node@v3
+              with:
+                node-version: ${{ matrix.node-version }}
+            - uses: mirromutth/mysql-action@v1.1
+              with:
+                mysql version: ${{ matrix.mysql-version }}
+                mysql database: ${{ secrets.DB }}
+                mysql root password: ${{ secrets.SQL_PASS }}
+            - name: Initialize Packer
+              run: packer init .
+            - run: npm ci
+            - run: npm run build --if-present
+            - run: npm start &
+            - run: npm test
+            - run: sudo rm -rf node_modules
+            - run: packer build .
+            - name: Configure AWS Demo RollingUpdate Credentials
+              uses: aws-actions/configure-aws-credentials@v1
+              with:
+                aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID_DEMO }}
+                aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_DEMO }}
+                aws-region: ${{ secrets.REGION }}
+            - name: RollingUpdate
+              run: |
+                export AMI_ID=$(jq -r '.builds[-1].artifact_id' manifest.json | cut -d ":" -f2)
+                aws ec2 create-launch-template-version --launch-template-name asg_launch_config --source-version 1 --launch-template-data '{"ImageId":"'$AMI_ID'"}'
+                aws autoscaling update-auto-scaling-group --auto-scaling-group-name application_asg --launch-template LaunchTemplateName='asg_launch_config',Version='$Latest'
+                aws autoscaling start-instance-refresh --auto-scaling-group-name application_asg
